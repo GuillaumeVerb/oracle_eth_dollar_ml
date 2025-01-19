@@ -4,8 +4,6 @@ from sklearn.model_selection import train_test_split, GridSearchCV, TimeSeriesSp
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 import xgboost as xgb
-from lightgbm import LGBMRegressor
-from catboost import CatBoostRegressor
 import pickle
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -63,24 +61,29 @@ class HybridIndexPredictor:
     
     def evaluate_models(self, X_train, X_test, y_train, y_test):
         """
-        Evaluate multiple models and select the best one
+        Evaluate XGBoost model with different configurations
         """
         models = {
-            'xgboost': (xgb.XGBRegressor(random_state=self.random_state), {
+            'xgboost_default': (xgb.XGBRegressor(random_state=self.random_state), {
                 'n_estimators': [100, 200, 300],
                 'max_depth': [3, 5, 7],
                 'learning_rate': [0.01, 0.1, 0.3],
                 'min_child_weight': [1, 3, 5]
             }),
-            'lightgbm': (LGBMRegressor(random_state=self.random_state), {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7],
-                'learning_rate': [0.01, 0.1, 0.3]
+            'xgboost_conservative': (xgb.XGBRegressor(random_state=self.random_state), {
+                'n_estimators': [50, 100, 150],
+                'max_depth': [2, 3, 4],
+                'learning_rate': [0.005, 0.01, 0.05],
+                'min_child_weight': [2, 4, 6],
+                'subsample': [0.8, 0.9],
+                'colsample_bytree': [0.8, 0.9]
             }),
-            'catboost': (CatBoostRegressor(random_state=self.random_state, verbose=False), {
-                'iterations': [100, 200, 300],
-                'depth': [3, 5, 7],
-                'learning_rate': [0.01, 0.1, 0.3]
+            'xgboost_aggressive': (xgb.XGBRegressor(random_state=self.random_state), {
+                'n_estimators': [300, 500, 700],
+                'max_depth': [5, 7, 9],
+                'learning_rate': [0.1, 0.2, 0.3],
+                'min_child_weight': [1, 2, 3],
+                'gamma': [0, 0.1, 0.2]
             })
         }
         
@@ -163,20 +166,34 @@ class HybridIndexPredictor:
     
     def add_technical_indicators(self, df):
         """
-        Ajoute des indicateurs techniques avancés
+        Ajoute des indicateurs techniques avancés en utilisant pandas
         """
-        # Indicateurs de tendance
-        df['eth_ema'] = talib.EMA(df['eth_price'], timeperiod=14)
-        df['sp500_ema'] = talib.EMA(df['sp500_index'], timeperiod=14)
-        df['eth_macd'], df['eth_macd_signal'], _ = talib.MACD(df['eth_price'])
+        # Moyennes mobiles exponentielles
+        df['eth_ema'] = df['eth_price'].ewm(span=14).mean()
+        df['sp500_ema'] = df['sp500_index'].ewm(span=14).mean()
         
-        # Oscillateurs
-        df['eth_rsi'] = talib.RSI(df['eth_price'], timeperiod=14)
-        df['sp500_rsi'] = talib.RSI(df['sp500_index'], timeperiod=14)
+        # MACD simplifié
+        exp1 = df['eth_price'].ewm(span=12).mean()
+        exp2 = df['eth_price'].ewm(span=26).mean()
+        df['eth_macd'] = exp1 - exp2
+        df['eth_macd_signal'] = df['eth_macd'].ewm(span=9).mean()
         
-        # Volatilité
-        df['eth_bbands_upper'], df['eth_bbands_middle'], df['eth_bbands_lower'] = \
-            talib.BBANDS(df['eth_price'], timeperiod=20)
+        # RSI
+        def calculate_rsi(series, periods=14):
+            delta = series.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=periods).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=periods).mean()
+            rs = gain / loss
+            return 100 - (100 / (1 + rs))
+        
+        df['eth_rsi'] = calculate_rsi(df['eth_price'])
+        df['sp500_rsi'] = calculate_rsi(df['sp500_index'])
+        
+        # Bandes de Bollinger
+        df['eth_sma'] = df['eth_price'].rolling(window=20).mean()
+        df['eth_std'] = df['eth_price'].rolling(window=20).std()
+        df['eth_bbands_upper'] = df['eth_sma'] + (df['eth_std'] * 2)
+        df['eth_bbands_lower'] = df['eth_sma'] - (df['eth_std'] * 2)
         
         # Ratios et différences
         df['price_spread'] = df['eth_price'] - df['sp500_index']

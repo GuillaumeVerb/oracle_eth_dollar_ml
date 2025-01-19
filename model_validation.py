@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from scipy import stats
+import pandas as pd
 
 class ModelValidator:
     def __init__(self, model, X, y):
