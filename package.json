@@ -1,0 +1,15 @@
+{
+  "name": "hybrid-oracle-updater",
+  "version": "1.0.0",
+  "description": "Updater script for HybridOracle smart contract",
+  "main": "update_oracle.js",
+  "scripts": {
+    "start": "node update_oracle.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "ethers": "^5.7.2",
+    "dotenv": "^16.0.3",
+    "csv-parser": "^3.0.0"
+  }
+} 

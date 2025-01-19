@@ -1,169 +1,269 @@
-# HybridOracle Smart Contract
+# Hybrid Oracle ETH/USD and S&P 500 Index Project
 
-## Overview
+This project implements a hybrid oracle system that combines ETH/USD price and S&P 500 index data. It consists of Python scripts for data collection and model training, and a Node.js script for automated oracle updates.
 
-HybridOracle is a secure Ethereum smart contract designed to maintain and provide on-chain price data for ETH/USD and the S&P 500 index, while calculating a hybrid index based on these values. The contract implements multiple security features and follows best practices for financial oracle implementations.
+## Project Components
 
-## Features
+1. **Python Scripts**
+   - `train_model.py`: Machine learning model training
+   - `model_validation.py`: Advanced model validation and diagnostics
+   - `predict_and_monitor.py`: Real-time price monitoring and predictions
 
-### Core Functionality
-- Stores ETH/USD price (scaled by 100 for 2 decimal precision)
-- Stores S&P 500 index value
-- Calculates a hybrid index using high-precision mathematics
-- Provides data freshness validation
+2. **Node.js Script**
+   - `update_oracle.js`: Smart contract oracle updater
 
-### Security Features
-- Owner-based access control
-- Two-step ownership transfer with time delay
-- Price change rate limiting
-- Emergency pause mechanism
-- Protection against flash loan attacks
-- Reentrancy protection
-- ETH recovery for accidental transfers
+## Python Components
 
-## Contract Architecture
+### 1. Model Training (`train_model.py`)
 
-### State Variables
-```solidity
-address public owner;                // Contract owner address
-address public pendingOwner;        // Address of pending owner during transfer
-uint256 public ethPrice;            // ETH/USD price * 100
-uint256 public sp500Index;          // S&P 500 index value
-uint256 public hybridIndex;         // Calculated hybrid index
-uint256 public lastUpdate;          // Last update timestamp
-bool public paused;                 // Circuit breaker
+#### Features
+- Hybrid model combining ETH and S&P 500 data
+- Advanced feature engineering
+- Multiple model comparison (XGBoost, LightGBM)
+- Hyperparameter optimization
+- Cross-validation with time series split
+
+#### Key Components
+```python
+class HybridIndexPredictor:
+    def __init__(self):
+        self.models = {
+            'xgboost': XGBRegressor(),
+            'lightgbm': LGBMRegressor()
+        }
 ```
 
-### Constants
-```solidity
-MAX_ETH_PRICE = 1000000 * 100      // Maximum $1M ETH price
-MAX_SP500_VALUE = 100000           // Maximum 100,000 S&P 500 value
-OWNERSHIP_TRANSFER_DELAY = 2 days   // Ownership transfer delay
-MAX_PRICE_CHANGE_PERCENTAGE = 20    // 20% max price change
-MAX_UPDATE_DELAY = 24 hours        // Maximum time between updates
+#### Technical Features
+- Volatility calculations
+- Moving averages (7, 14, 30 days)
+- Momentum indicators
+- Price ratios and correlations
+
+#### Model Evaluation
+- R-squared score
+- RMSE (Root Mean Square Error)
+- MAE (Mean Absolute Error)
+- MAPE (Mean Absolute Percentage Error)
+
+### 2. Model Validation (`model_validation.py`)
+
+#### Validation Features
+```python
+class ModelValidator:
+    def check_residuals(self)
+    def temporal_stability(self)
+    def feature_importance_analysis()
 ```
 
-## Security Measures
+#### Diagnostic Tools
+- Residual analysis
+- Heteroscedasticity tests
+- Autocorrelation checks
+- SHAP value analysis
 
-### Price Protection
-- Maximum bounds for both ETH price and S&P 500 index
-- Rate limiting: maximum 20% price change between updates
-- High precision calculations to prevent rounding errors
-- Freshness checks to prevent use of stale data
+#### Visualization
+- Feature importance plots
+- Residual distribution
+- Temporal stability graphs
+- SHAP summary plots
 
-### Access Control
-- Owner-only functions for critical operations
-- Two-step ownership transfer with 48-hour delay
-- Ability to cancel pending ownership transfers
-- Emergency pause functionality
+### 3. Price Monitoring (`predict_and_monitor.py`)
 
-### Contract Safety
-- Reentrancy guard on price updates
-- ETH recovery mechanism
-- Custom errors for gas optimization
-- Comprehensive event emission
+#### Features
+- Real-time ETH price monitoring via CoinGecko
+- S&P 500 data from Alpha Vantage
+- Automated alerts system
+- Historical data tracking
 
-## Functions
-
-### Core Functions
-
-#### `updateData`
-Updates price data with multiple safety checks:
-```solidity
-function updateData(uint256 _ethPrice, uint256 _sp500Index) external
-```
-- Requires owner access
-- Validates price ranges
-- Checks price change rates
-- Updates hybrid index
-- Emits events
-
-#### `getLatestData`
-Retrieves current price data:
-```solidity
-function getLatestData() external view returns (
-    uint256 _ethPrice,
-    uint256 _sp500Index,
-    uint256 _hybridIndex,
-    uint256 _lastUpdate
-)
-```
-- Checks data freshness
-- Validates contract not paused
-
-### Administrative Functions
-
-#### Ownership Management
-```solidity
-function initiateOwnershipTransfer(address newOwner) external
-function completeOwnershipTransfer() external
-function cancelOwnershipTransfer() external
+#### Configuration
+```python
+# Environment variables
+COINGECKO_API_URL=
+ALPHAVANTAGE_API_KEY=
+ALERT_THRESHOLD=0.05  # 5% threshold
 ```
 
-#### Emergency Controls
-```solidity
-function pause() external
-function unpause() external
-function emergencyShutdown(string calldata reason) external
+## Node.js Oracle Updater
+
+### Overview
+
+The Node.js script automates updates to the HybridOracle smart contract by monitoring ETH/USD and S&P 500 index values.
+
+### Architecture
+
+#### Main Components
+
+1. **OracleUpdater Class**
+   - Update logic management
+   - Smart contract interaction
+   - Data validation
+
+2. **Configuration System**
+   - `.env` for sensitive variables
+   - Configurable update thresholds
+   - Retry parameters
+
+3. **Logging System**
+   - Updates logged to `oracle_updates.json`
+   - Detailed console logs
+   - Transaction tracking
+
+### Detailed Features
+
+#### 1. Data Reading
+```javascript
+async getLatestDataFromCSV()
+```
+- Reads `historical_data.csv`
+- Parses ETH and S&P 500 values
+- Data validation
+
+#### 2. State Verification
+```javascript
+async checkContractState()
+```
+- Contract pause check
+- Wallet permissions
+- Operation security
+
+#### 3. Update Validation
+```javascript
+async checkUpdateNeeded(latestData)
+```
+- On-chain data comparison
+- Variation threshold (5%)
+- External alerts via `alert.json`
+
+### Security
+
+#### Protection Measures
+1. **Data Validation**
+   - Null value checks
+   - Format validation
+   - Boundary controls
+
+2. **Transaction Management**
+   - Gas buffer (20%)
+   - Confirmation waiting
+   - Event verification
+
+## Installation and Setup
+
+### Prerequisites
+- Python 3.8+
+- Node.js v14+
+- npm or yarn
+- Ethereum node access
+
+### Python Setup
+```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Unix
+venv\Scripts\activate     # Windows
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-## Events and Errors
+### Node.js Setup
+```bash
+# Install dependencies
+npm install
 
-### Events
-```solidity
-event DataUpdated(uint256 ethPrice, uint256 sp500Index, uint256 hybridIndex, uint256 timestamp);
-event OwnershipTransferInitiated(address indexed previousOwner, address indexed newOwner);
-event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-event Paused(address account);
-event Unpaused(address account);
-event EthReceived(address sender, uint256 amount);
-event EthRecovered(address recipient, uint256 amount);
-event OwnershipTransferCancelled(address owner, address canceledOwner);
+# Configure environment
+cp .env.example .env
+# Edit .env with your values
 ```
 
-### Custom Errors
-```solidity
-error InvalidPrice(uint256 price);
-error InvalidIndex(uint256 index);
-error PriceChangeTooBig(uint256 oldPrice, uint256 newPrice);
-error UnauthorizedCaller(address caller);
-error NoTransferPending();
-error TransferDelayNotMet(uint256 initiatedTime, uint256 requiredDelay);
-error EmergencyShutdown(string reason);
-error StaleData(uint256 lastUpdateTime, uint256 maxDelay);
+## Usage
+
+### Training the Model
+```bash
+python train_model.py
 ```
 
-## Usage Guidelines
+### Validating the Model
+```bash
+python model_validation.py
+```
 
-### Best Practices
-1. Monitor emitted events for tracking updates
-2. Implement off-chain alerting for price changes
-3. Regular validation of data freshness
-4. Test emergency procedures periodically
-5. Maintain secure owner key management
+### Running the Price Monitor
+```bash
+python predict_and_monitor.py
+```
 
-### Security Considerations
-1. Owner privileges require careful management
-2. Price updates should be monitored for manipulation
-3. Emergency procedures should be tested regularly
-4. Respect time delays for ownership transfers
+### Starting the Oracle Updater
+```bash
+npm start
+# or
+node update_oracle.js
+```
 
-## Development and Testing
+## Configuration
 
-### Requirements
-- Solidity ^0.8.0
-- Ethereum development environment (Hardhat/Truffle)
-- OpenZeppelin Contracts (recommended for testing)
+### Environment Variables
+```env
+# API Configuration
+WEB3_PROVIDER_URL=https://mainnet.infura.io/v3/your_key
+WALLET_PRIVATE_KEY=your_private_key
+CONTRACT_ADDRESS=your_contract_address
+COINGECKO_API_URL=https://api.coingecko.com/api/v3
+ALPHAVANTAGE_API_KEY=your_key
 
-### Testing Recommendations
-1. Unit tests for all core functions
-2. Price change boundary tests
-3. Ownership transfer scenarios
-4. Emergency procedure testing
-5. Gas optimization validation
+# Update Parameters
+UPDATE_THRESHOLD=0.05
+MAX_RETRIES=3
+RETRY_DELAY=5000
+```
+
+## Error Handling
+
+### Types of Errors
+1. **Reading Errors**
+   - Missing CSV file
+   - Invalid data format
+
+2. **Blockchain Errors**
+   - Failed transactions
+   - Insufficient gas
+   - Incorrect nonce
+
+3. **Validation Errors**
+   - Out-of-bounds data
+   - Contract paused
+   - Insufficient permissions
+
+### Retry System
+- Multiple transaction attempts
+- Exponential delays
+- Detailed error logs
+
+## Maintenance
+
+### Regular Tasks
+1. Check error logs
+2. Monitor gas costs
+3. Validate update thresholds
+4. Review model performance
+
+### Recommended Updates
+1. Adjust thresholds based on market
+2. Optimize gas parameters
+3. Update dependencies
+4. Retrain model periodically
+
+## Support and Contribution
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Submit a Pull Request
+
+### Support
+- Open issues for bugs
+- Consult smart contract documentation
+- Check logs for debugging
 
 ## License
-MIT License
-
-## Contributing
-Contributions are welcome! Please feel free to submit a Pull Request. 
+MIT License 
