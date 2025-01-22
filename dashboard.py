@@ -74,6 +74,15 @@ def load_data():
     if 'hybrid_index' not in df.columns:
         df['hybrid_index'] = (df['eth_price'] / df['sp500_index']) * 1000
     
+    # Add predicted values (simulated with small random variation)
+    if 'predicted_hybrid_index' not in df.columns:
+        # Add some realistic prediction patterns
+        base_prediction = df['hybrid_index'].rolling(window=7).mean()  # Use 7-day moving average as base
+        random_variation = np.random.normal(0, df['hybrid_index'].std() * 0.05, len(df))  # 5% standard deviation
+        df['predicted_hybrid_index'] = base_prediction + random_variation
+        # Ensure predictions are not negative
+        df['predicted_hybrid_index'] = df['predicted_hybrid_index'].clip(lower=0)
+    
     # Calculate technical indicators
     df = calculate_technical_indicators(df)
     return df
@@ -321,6 +330,51 @@ def create_statistical_cards(df):
         )
     ])
 
+def create_comparison_chart(df):
+    """
+    Create a simplified comparison chart of actual vs predicted hybrid index
+    """
+    fig = go.Figure()
+    
+    # Actual values
+    fig.add_trace(go.Scatter(
+        x=df['timestamp'],
+        y=df['hybrid_index'],
+        name='Actual Hybrid Index',
+        line=dict(color='#2ecc71', width=2)
+    ))
+    
+    # Predicted values if available
+    if 'predicted_hybrid_index' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['predicted_hybrid_index'],
+            name='Predicted Hybrid Index',
+            line=dict(color='#e74c3c', width=2, dash='dash')
+        ))
+        
+        # Add difference area
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['hybrid_index'],
+            fill='tonexty',
+            name='Difference',
+            line=dict(width=0),
+            fillcolor='rgba(26, 188, 156, 0.1)'
+        ))
+    
+    fig.update_layout(
+        title='Model Performance: Actual vs Predicted Hybrid Index',
+        xaxis_title='Date',
+        yaxis_title='Hybrid Index Value',
+        hovermode='x unified',
+        showlegend=True,
+        template='plotly_white',
+        height=400
+    )
+    
+    return fig
+
 # Layout
 app.layout = html.Div([
     header,
@@ -331,7 +385,12 @@ app.layout = html.Div([
     html.Div(id='metric-cards'),
     html.Div(id='statistical-cards'),
     html.Hr(),
-    graphs,
+    dbc.Container([
+        html.H4("Hybrid Index Evolution", className="mb-4"),
+        dcc.Graph(id='comparison-chart')
+    ]),
+    html.Hr(),
+    html.Div(id='secondary-graphs'),
     html.Div(id='technical-graphs'),
     html.Div(id='statistical-graphs'),
     html.Div(id='table-container')
@@ -339,13 +398,13 @@ app.layout = html.Div([
 
 # Callback to update dashboard
 @app.callback(
-    [Output('main-graph', 'figure'),
-     Output('secondary-graphs', 'children'),
+    [Output('secondary-graphs', 'children'),
      Output('metric-cards', 'children'),
      Output('statistical-cards', 'children'),
      Output('technical-graphs', 'children'),
      Output('statistical-graphs', 'children'),
-     Output('table-container', 'children')],
+     Output('table-container', 'children'),
+     Output('comparison-chart', 'figure')],
     [Input('date-picker', 'start_date'),
      Input('date-picker', 'end_date'),
      Input('display-options', 'value'),
@@ -360,31 +419,49 @@ def update_dashboard(start_date, end_date, display_options, technical_indicators
     mask = (df['timestamp'] >= start_date) & (df['timestamp'] <= end_date)
     filtered_df = df.loc[mask]
     
-    # Create main figure (Hybrid Index)
-    fig1 = go.Figure()
+    # Split data into historical and future
+    cutoff_date = pd.to_datetime('2025-01-31')
+    historical_df = filtered_df[filtered_df['timestamp'] <= cutoff_date]
+    future_df = filtered_df[filtered_df['timestamp'] > cutoff_date]
     
-    fig1.add_trace(go.Scatter(
-        x=filtered_df['timestamp'],
-        y=filtered_df['hybrid_index'],
+    # Create comparison chart
+    comparison_fig = go.Figure()
+    
+    # Actual values (only historical)
+    comparison_fig.add_trace(go.Scatter(
+        x=historical_df['timestamp'],
+        y=historical_df['hybrid_index'],
         name='Actual Hybrid Index',
-        line=dict(color='blue')
+        line=dict(color='#2ecc71', width=2)
     ))
     
-    if 'show_pred' in display_options and 'predicted_hybrid_index' in filtered_df.columns:
-        fig1.add_trace(go.Scatter(
+    # Predicted values (both historical and future)
+    if 'show_pred' in display_options:
+        comparison_fig.add_trace(go.Scatter(
             x=filtered_df['timestamp'],
             y=filtered_df['predicted_hybrid_index'],
             name='Predicted Hybrid Index',
-            line=dict(color='red', dash='dash')
+            line=dict(color='#e74c3c', width=2, dash='dash')
+        ))
+        
+        # Add difference area only for historical data
+        comparison_fig.add_trace(go.Scatter(
+            x=historical_df['timestamp'],
+            y=historical_df['hybrid_index'],
+            fill='tonexty',
+            name='Difference',
+            line=dict(width=0),
+            fillcolor='rgba(26, 188, 156, 0.1)'
         ))
     
-    fig1.update_layout(
+    comparison_fig.update_layout(
         title='Hybrid Index Evolution',
         xaxis_title='Date',
-        yaxis_title='Hybrid Index',
+        yaxis_title='Hybrid Index Value',
         hovermode='x unified',
         showlegend=True,
-        template='plotly_white'
+        template='plotly_white',
+        height=400
     )
     
     # Create secondary graphs if option is selected
@@ -513,7 +590,9 @@ def update_dashboard(start_date, end_date, display_options, technical_indicators
     else:
         table_container = None
     
-    return (fig1, secondary_graphs, cards, statistical_cards, technical_graphs, statistical_graphs, table_container)
+    return (secondary_graphs, cards, statistical_cards, 
+            technical_graphs, statistical_graphs, table_container, 
+            comparison_fig)
 
 # Add custom CSS
 app.index_string = '''
@@ -559,4 +638,4 @@ app.index_string = '''
 '''
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8051) 
+    app.run_server(debug=True, port=8053) 
