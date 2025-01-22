@@ -121,7 +121,7 @@ def calculate_metrics(df):
         metrics = {
             'r2': df['hybrid_index'].corr(df['eth_price'])**2,  # R² avec le prix ETH comme référence
             'rmse': df['hybrid_index'].std(),  # Utiliser l'écart-type comme proxy
-            'mae': df['hybrid_index'].mad(),  # Déviation absolue médiane
+            'mae': np.mean(np.abs(df['hybrid_index'] - df['hybrid_index'].mean())),  # MAE calculé manuellement
             'mape': df['hybrid_index'].pct_change().abs().mean() * 100,  # Variation moyenne en pourcentage
             'rel_error': df['hybrid_index'].pct_change().std(),  # Volatilité relative
             'bias': 0,  # Pas de biais sans prédictions
@@ -559,4 +559,4 @@ app.index_string = '''
 '''
 
 if __name__ == '__main__':
-    app.run_server(debug=True) 
+    app.run_server(debug=True, port=8051) 
